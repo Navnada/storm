@@ -1,24 +1,21 @@
-#include <iostream>
+#pragma once
+
+#include "storm/models/sparse/Dtmc.h"
+
+#include "storm/logic/Formula.h"
 
 namespace storm {
     namespace counterexamples {
-        template <class T>
+        
+        template <class ValueType>
         class MyDTMCCounterexample {
         public:
-            //static bool computeCounterexample();
-            static bool computeCounterexample(int x) {
-                int y = 2*x;
-                meandyou z;
-                z.me = y;
-                z.you = nullptr;
-                std::cout << "Counterexamples " << z.me << std::endl;
-                return true;
-            }
+            MyDTMCCounterexample(storm::models::sparse::Dtmc<ValueType> const& dtmc);
+            
+            void generateCounterexample(std::shared_ptr<storm::logic::Formula const> const& formula);
 
-            struct meandyou {
-                int me;
-                meandyou* you;
-            };
+        private:
+            storm::models::sparse::Dtmc<ValueType> const& dtmc;
         };
     } // namespace counterexamples
 } // namespace storm

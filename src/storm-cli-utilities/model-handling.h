@@ -189,7 +189,7 @@ namespace storm {
             storm::builder::BuilderOptions options(createFormulasToRespect(input.properties));
             options.setBuildChoiceLabels(buildSettings.isBuildChoiceLabelsSet());
             options.setBuildStateValuations(buildSettings.isBuildStateValuationsSet());
-            options.setBuildChoiceOrigins(counterexampleGeneratorSettings.isMinimalCommandSetGenerationSet());
+            options.setBuildChoiceOrigins(storm::settings::getModule<storm::settings::modules::CoreSettings>().isCounterexampleSet() && counterexampleGeneratorSettings.getFormat() == storm::settings::modules::CounterexampleGeneratorSettings::Format::HighLevel);
             options.setBuildAllLabels(buildSettings.isBuildFullModelSet());
             options.setBuildAllRewardModels(buildSettings.isBuildFullModelSet());
             if (buildSettings.isBuildFullModelSet()) {
@@ -402,12 +402,12 @@ namespace storm {
             STORM_LOG_THROW(model->isSparseModel(), storm::exceptions::NotSupportedException, "Counterexample generation is currently only supported for sparse models.");
             auto sparseModel = model->as<storm::models::sparse::Model<ValueType>>();
             
-            STORM_LOG_THROW(sparseModel->isOfType(storm::models::ModelType::Dtmc) || sparseModel->isOfType(storm::models::ModelType::Mdp), storm::exceptions::NotSupportedException, "Counterexample is currently only supported for discrete-time models.");
+            STORM_LOG_THROW(sparseModel->isOfType(storm::models::ModelType::Dtmc) || sparseModel->isOfType(storm::models::ModelType::Mdp), storm::exceptions::NotSupportedException, "Counterexample generation is currently only supported for discrete-time models.");
             
-            auto counterexampleSettings = storm::settings::getModule<storm::settings::modules::CounterexampleGeneratorSettings>();
-            if (counterexampleSettings.isMinimalCommandSetGenerationSet()) {
+            auto const& counterexampleSettings = storm::settings::getModule<storm::settings::modules::CounterexampleGeneratorSettings>();
+            if (counterexampleSettings.getFormat() == storm::settings::modules::CounterexampleGeneratorSettings::Format::HighLevel) {
                 
-                bool useMilp = counterexampleSettings.isUseMilpBasedMinimalCommandSetGenerationSet();
+                bool useMilp = counterexampleSettings.getHighLevelTechnique() == storm::settings::modules::CounterexampleGeneratorSettings::HighLevelTechnique::Milp;
                 for (auto const& property : input.properties) {
                     std::shared_ptr<storm::counterexamples::Counterexample> counterexample;
                     printComputingCounterexample(property);
@@ -426,6 +426,13 @@ namespace storm {
                     }
                     watch.stop();
                     printCounterexample(counterexample, &watch);
+                }
+            } else if (counterexampleSettings.getFormat() == storm::settings::modules::CounterexampleGeneratorSettings::Format::Paths) {
+                STORM_LOG_THROW(sparseModel->isOfType(storm::models::ModelType::Dtmc), storm::exceptions::NotSupportedException, "Counterexample generation is currently only supported for DTMCs.");
+                storm::counterexamples::MyDTMCCounterexample<double> generator(*sparseModel->template as<storm::models::sparse::Dtmc<ValueType>>());
+
+                for (auto const& property : input.properties) {
+                    generator.generateCounterexample(property.getRawFormula());
                 }
             } else {
                 STORM_LOG_THROW(false, storm::exceptions::NotSupportedException, "The selected counterexample formalism is unsupported.");
@@ -519,7 +526,6 @@ namespace storm {
                 storm::utility::Stopwatch watch(true);
                 std::unique_ptr<storm::modelchecker::CheckResult> result = verificationCallback(property.getRawFormula(), property.getFilter().getStatesFormula());
                 watch.stop();
-                storm::counterexamples::MyDTMCCounterexample<double>::computeCounterexample(7);
                 postprocessingCallback(result);
                 printResult<ValueType>(result, property, &watch);
             }

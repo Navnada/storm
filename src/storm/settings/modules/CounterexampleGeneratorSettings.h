@@ -12,33 +12,28 @@ namespace storm {
              */
             class CounterexampleGeneratorSettings : public ModuleSettings {
             public:
+                enum class Format {
+                    Paths, HighLevel
+                };
+                
+                enum class HighLevelTechnique {
+                    MaxSat, Milp
+                };
+                
                 /*!
                  * Creates a new set of counterexample settings.
                  */
                 CounterexampleGeneratorSettings();
                 
                 /*!
-                 * Retrieves whether the option to generate a minimal command set was set.
-                 *
-                 * @return True iff a minimal command set counterexample is to be generated.
+                 * Retrieves the selected format for counterexamples.
                  */
-                bool isMinimalCommandSetGenerationSet() const;
+                Format getFormat() const;
                 
                 /*!
-                 * Retrieves whether the MILP-based technique is to be used to generate a minimal command set
-                 * counterexample.
-                 *
-                 * @return True iff the MILP-based technique is to be used.
+                 * Retrieves the technique selected for high-level counterexamples
                  */
-                bool isUseMilpBasedMinimalCommandSetGenerationSet() const;
-
-                /*!
-                 * Retrieves whether the MAXSAT-based technique is to be used to generate a minimal command set
-                 * counterexample.
-                 *
-                 * @return True iff the MAXSAT-based technique is to be used.
-                 */
-                bool isUseMaxSatBasedMinimalCommandSetGenerationSet() const;
+                HighLevelTechnique getHighLevelTechnique() const;
                 
                 /*!
                  * Retrieves whether reachability of a target state is to be encoded if the MAXSAT-based technique is
@@ -70,7 +65,8 @@ namespace storm {
                 
             private:
                 // Define the string names of the options as constants.
-                static const std::string minimalCommandSetOptionName;
+                static const std::string formatOptionName;
+                static const std::string highLevelOptionName;
                 static const std::string encodeReachabilityOptionName;
                 static const std::string schedulerCutsOptionName;
                 static const std::string noDynamicConstraintsOptionName;
