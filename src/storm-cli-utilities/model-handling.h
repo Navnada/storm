@@ -38,6 +38,8 @@
 
 #include "storm/utility/Stopwatch.h"
 
+#include "storm/counterexamples/MyDTMCCounterexample.h"
+
 namespace storm {
     namespace cli {
         
@@ -517,6 +519,7 @@ namespace storm {
                 storm::utility::Stopwatch watch(true);
                 std::unique_ptr<storm::modelchecker::CheckResult> result = verificationCallback(property.getRawFormula(), property.getFilter().getStatesFormula());
                 watch.stop();
+                storm::counterexamples::MyDTMCCounterexample<double>::computeCounterexample(7);
                 postprocessingCallback(result);
                 printResult<ValueType>(result, property, &watch);
             }
