@@ -61,34 +61,37 @@ namespace storm {
             STORM_LOG_ASSERT(result->isExplicitQualitativeCheckResult(), "Expected explicit qualitative result.");
             storm::storage::BitVector rightStates = result->asExplicitQualitativeCheckResult().getTruthValuesVector();
 
-            // std::cout << "states satisfying '" << boundedUntilFormula.getLeftSubformula() << "': " << leftStates.size() << std::endl;
-            // std::cout << "states satisfying '" << boundedUntilFormula.getRightSubformula()<< "': " << rightStates.size() << std::endl;
-            
-            // Loop over the transition matrix over the DTMC, because it's fun.
+            //std::cout << "states satisfying '" << boundedUntilFormula.getLeftSubformula() << "': " << leftStates << std::endl;
+            std::cout << "states satisfying '" << boundedUntilFormula.getRightSubformula()<< "': " << rightStates << std::endl;
+
             auto const& transitionMatrix = this->dtmc.getTransitionMatrix();
-           /* for (uint64_t row = 0; row < transitionMatrix.getRowCount(); ++row) {
-                for (auto const& element : transitionMatrix.getRow(row)) {
-                    std::cout << "The element at row " << row << " and column " << element.getColumn() << " is " << element.getValue() << std::endl;
 
-                }
-            }*/
+            std::vector<Node> allNodes(transitionMatrix.getRowCount() + 1);
+            std::vector<UltimateStackItem> ultimateStack(0); // stack to help out with "recursion"
 
-            std::cout << std::endl; 
+            uint64_t k = 0;     // looking for second shortest path
+            uint64_t v = t;     // into terminal node
+            
+            uint64_t u = 0;     // just init
+            uint64_t ktmp = 0;  // just init
+            uint64_t l = 1;
+            bool skip = false;  // just init - skip to step 6 from step 2
+            bool in = true;
+            double probabilitySum = allNodes[t].Paths[0].Probability;
+            uint64_t t = allNodes.size() - 1;
+
 
             /*------ Dijkstra to all -----*/
             
-            std::vector<Node> allNodes(transitionMatrix.getRowCount());
-            // std::vector<Node> allNodes(transitionMatrix.getRowCount()); // free once not needed
-            
             allNodes[0].Shortest = 1.0;
             allNodes[0].Paths[0].Probability = 1.0;
-            int x = 0;
+            uint64_t x = 0;
             double prob = -1.0;
             while(true) {
                 prob = -1.0;
 
-                for (uint64_t n = 0; n < allNodes.size(); ++n) {
-                    if(allNodes[n].Shortest > prob  && !allNodes[n].Visited) {
+                for (uint64_t n = 0; n < allNodes.size() - 1; ++n) {
+                    if(!allNodes[n].Visited && allNodes[n].Shortest > prob) {
                         prob = allNodes[n].Shortest;
                         x = n;
                     }
@@ -96,52 +99,69 @@ namespace storm {
                 if (prob == -1.0)             
                     break;
                 for (auto const& element : transitionMatrix.getRow(x)) {
-                    if (allNodes[element.getColumn()].Shortest < allNodes[x].Shortest * element.getValue() && !allNodes[element.getColumn()].Visited) {
+                    if (!allNodes[element.getColumn()].Visited      // why?
+                        && allNodes[element.getColumn()].Shortest < allNodes[x].Shortest * element.getValue()
+                        && rightStates.get(x) != 1 // remove transitions between terminal states (remove == 0)
+                        ) {
                         allNodes[element.getColumn()].Shortest = allNodes[x].Shortest * element.getValue();
                         allNodes[element.getColumn()].Paths[0].PrevNode = x;
                         allNodes[element.getColumn()].Paths[0].Kth = 0;
                         allNodes[element.getColumn()].Paths[0].Probability = allNodes[x].Shortest * element.getValue();
                         // std::cout << ".";
-                        // std::cout << "setting unvisited probability of " << element.getColumn() << " to " << allNodes[element.getColumn()].Shortest << std::endl;
                     }
                 }
-                allNodes[x].Shortest = allNodes[x].Shortest;
                 allNodes[x].Visited = true;
             }
 
             /*------ End of Dijkstra to all -----*/
-            uint64_t t = 0;
-            for (uint64_t n = 0; n < allNodes.size(); ++n) { // beware of multiple terminal states
-                if(rightStates.get(n) == 1)
-                    t = n;
+            
+            prob = -1.0;
+            x = 0;
+            for (uint64_t n = 0; n < allNodes.size() - 1; ++n) { 
+                if(rightStates.get(n) == 1) {
+                    allNodes[t].Predecessors.emplace_back(n,1.0);
+                    if (allNodes[n].Paths[0].Probability > prob) {
+                        x = n;
+                        prob = allNodes[n].Paths[0].Probability;
+                    }
+                }
             }
-            std::cout << "terminal state: " << t << std::endl;
+            allNodes[t].Paths[0].PrevNode = x;
+            allNodes[t].Paths[0].Kth = 0;
+            allNodes[t].Paths[0].Probability = allNodes[x].Paths[0].Probability;
+
+            std::cout << "virtual terminal state: " << t << std::endl;
             std::cout << "probability threshold: " << threshold << std::endl;
+
+            std::cout << "k: " << "0" << " (" << allNodes[t].Paths[k].Probability << ")" << std::endl;
+            x = t;
+            ktmp = allNodes[x].Paths[k].Kth;
+            x = allNodes[x].Paths[k].PrevNode;
+            k = ktmp;
+            while (!(k == 0 && x == 0)) {
+                std::cout << x << " <- ";
+                ktmp = allNodes[x].Paths[k].Kth;
+                x = allNodes[x].Paths[k].PrevNode;
+                k = ktmp;
+            }
+            std::cout << "0" << std::endl;
+
+            k = 1;
 
             /*------ KSH -----*/
 
-            for (uint64_t n = 0; n < allNodes.size(); ++n) {
+            for (uint64_t n = 0; n < allNodes.size() - 1; ++n) {
                 for (auto const& element : transitionMatrix.getRow(n)) {
-                    if (!(element.getColumn() == n && element.getValue() == 1.0)) {
+                    if ( (!(element.getColumn() == n && element.getValue() == 1.0)) // no 1.0 self loops
+                        && rightStates.get(n) != 1
+                        ) {
                         allNodes[element.getColumn()].Predecessors.emplace_back(n, element.getValue());
                     }
                 }
             }
-            
+
+
             /*------ Real fun with KSH -----*/
-
-            std::vector<UltimateStackItem> ultimateStack(0); // cool "array" to help out with "recursion"
-
-            uint64_t k = 1;     // looking for second shortest path
-            uint64_t v = t;     // into terminal node
-            
-            uint64_t u = 0;     // just init
-            uint64_t ktmp = 0;  // just init
-            bool skip = false;  // just init - skip to step 6 from step 2
-            bool in = true;
-
-            double probabilitySum = allNodes[t].Paths[0].Probability;
-
             while (!(threshold <= probabilitySum && v == t)) {
                 // std::cout << "checkpoint 1" << std::endl;
                 if (in) {
@@ -200,11 +220,28 @@ namespace storm {
 
                     if(ultimateStack.size() == 0) {
                         probabilitySum += allNodes[t].Paths[k].Probability;
-                        k++;
+                        l = k;
+                        //k++;
                         v = t;
                         in = true;
                         skip = false;
-                        // std::cout << ".";
+
+                        // print newly found path
+                        std::cout << "k: " << k << " (" << allNodes[t].Paths[k].Probability << ")" << std::endl;
+                        x = t;
+                        ktmp = allNodes[x].Paths[k].Kth;
+                        x = allNodes[x].Paths[k].PrevNode;
+                        k = ktmp;
+                        while (!(k == 0 && x == 0)) {
+                            std::cout << x << " <- ";
+                            ktmp = allNodes[x].Paths[k].Kth;
+                            x = allNodes[x].Paths[k].PrevNode;
+                            k = ktmp;
+                        }
+                        std::cout << "0" << std::endl;
+                        
+                        k = l+1;
+
                     } else {
                         // std::cout << "checkpoint 5" << std::endl; // step 5 is here
                         UltimateStackItem pop = ultimateStack.back();
@@ -223,11 +260,14 @@ namespace storm {
             }
             
             /*------ End of KSH -----*/
-
+            /*
             for (uint64_t n = 0; n < allNodes[t].Paths.size(); ++n) {
                 std::cout << "k: " << n << " (" << allNodes[t].Paths[n].Probability << ")" << std::endl;
                 x = t;
                 k = n;
+                ktmp = allNodes[x].Paths[k].Kth;
+                x = allNodes[x].Paths[k].PrevNode;
+                k = ktmp;
                 while (!(k == 0 && x == 0)) {
                     std::cout << x << " <- ";
                     ktmp = allNodes[x].Paths[k].Kth;
@@ -235,10 +275,10 @@ namespace storm {
                     k = ktmp;
                 }
                 std::cout << "0" << std::endl;
-            }
+            }*/
 
             //storm::counterexamples::MyDTMCCounterexample<ValueType>::PrintPotato();
-            //exit (0);
+
         }
 
         template <class ValueType>
