@@ -68,19 +68,17 @@ namespace storm {
 
             std::vector<Node> allNodes(transitionMatrix.getRowCount() + 1);
             std::vector<UltimateStackItem> ultimateStack(0); // stack to help out with "recursion"
+            std::vector<uint64_t> printStack(0);
 
+            uint64_t t = allNodes.size() - 1;
             uint64_t k = 0;     // looking for second shortest path
             uint64_t v = t;     // into terminal node
             
             uint64_t u = 0;     // just init
             uint64_t ktmp = 0;  // just init
             uint64_t l = 1;
-            bool skip = false;  // just init - skip to step 6 from step 2
             bool in = true;
-            double probabilitySum = allNodes[t].Paths[0].Probability;
-            uint64_t t = allNodes.size() - 1;
-
-
+            
             /*------ Dijkstra to all -----*/
             
             allNodes[0].Shortest = 1.0;
@@ -132,20 +130,23 @@ namespace storm {
 
             std::cout << "virtual terminal state: " << t << std::endl;
             std::cout << "probability threshold: " << threshold << std::endl;
-
+            
+            double probabilitySum = allNodes[t].Paths[0].Probability;
             std::cout << "k: " << "0" << " (" << allNodes[t].Paths[k].Probability << ")" << std::endl;
             x = t;
-            ktmp = allNodes[x].Paths[k].Kth;
-            x = allNodes[x].Paths[k].PrevNode;
-            k = ktmp;
             while (!(k == 0 && x == 0)) {
-                std::cout << x << " <- ";
+                printStack.push_back(x);
                 ktmp = allNodes[x].Paths[k].Kth;
                 x = allNodes[x].Paths[k].PrevNode;
                 k = ktmp;
             }
-            std::cout << "0" << std::endl;
-
+            printStack.push_back(0);
+            while (printStack.size() > 2) {
+                std::cout << printStack.back() << " -> ";
+                printStack.pop_back();
+            }
+            std::cout << printStack.back() << std::endl;
+            printStack.clear();
             k = 1;
 
             /*------ KSH -----*/
@@ -175,29 +176,27 @@ namespace storm {
                         // step 2 if k = 1 and v = s get ready for skip 
                         if(v == 0) {
                             in = false;
-                            skip = true;
+                            continue;
                         }
                     }
-                    if (!skip) {
-                        // step 3 prepare some variables
-                        u = allNodes[v].Paths[k-1].PrevNode;
-                        ktmp = allNodes[v].Paths[k-1].Kth + 1;
-                        // step 4
-                        if (allNodes[u].Paths.size() > ktmp)
-                        {
-                            for (uint64_t n = 0; n < allNodes[v].Predecessors.size(); ++n) {
-                                if (allNodes[v].Predecessors[n].first == u) {
-                                    allNodes[v].Candidates.push_back({u, ktmp, allNodes[u].Paths[ktmp].Probability * allNodes[v].Predecessors[n].second});
-                                }
+                    // step 3 prepare some variables
+                    u = allNodes[v].Paths[k-1].PrevNode;
+                    ktmp = allNodes[v].Paths[k-1].Kth + 1;
+                    // step 4
+                    if (allNodes[u].Paths.size() > ktmp)
+                    {
+                        for (uint64_t n = 0; n < allNodes[v].Predecessors.size(); ++n) {
+                            if (allNodes[v].Predecessors[n].first == u) {
+                                allNodes[v].Candidates.push_back({u, ktmp, allNodes[u].Paths[ktmp].Probability * allNodes[v].Predecessors[n].second});
                             }
-                            in = false;
                         }
-                        else
-                        {
-                            ultimateStack.push_back({v,k});
-                            v = u;
-                            k = ktmp;
-                        }
+                        in = false;
+                    }
+                    else
+                    {
+                        ultimateStack.push_back({v,k});
+                        v = u;
+                        k = ktmp;
                     }
                 } else {
                     // step 6
@@ -224,26 +223,26 @@ namespace storm {
                         //k++;
                         v = t;
                         in = true;
-                        skip = false;
 
                         // print newly found path
                         std::cout << "k: " << k << " (" << allNodes[t].Paths[k].Probability << ")" << std::endl;
                         x = t;
-                        ktmp = allNodes[x].Paths[k].Kth;
-                        x = allNodes[x].Paths[k].PrevNode;
-                        k = ktmp;
                         while (!(k == 0 && x == 0)) {
-                            std::cout << x << " <- ";
+                            printStack.push_back(x);
                             ktmp = allNodes[x].Paths[k].Kth;
                             x = allNodes[x].Paths[k].PrevNode;
                             k = ktmp;
                         }
-                        std::cout << "0" << std::endl;
-                        
+                        printStack.push_back(0);
+                        while (printStack.size() > 2) {
+                            std::cout << printStack.back() << " -> ";
+                            printStack.pop_back();
+                        }
+                        std::cout << printStack.back() << std::endl;
+                        printStack.clear();
                         k = l+1;
-
                     } else {
-                        // std::cout << "checkpoint 5" << std::endl; // step 5 is here
+                        // step 5 is here
                         UltimateStackItem pop = ultimateStack.back();
                         for (uint64_t n = 0; n < allNodes[pop.Node].Predecessors.size(); ++n) {
                             if (allNodes[pop.Node].Predecessors[n].first == v && bestCandidate != -1) { //!!
@@ -260,22 +259,7 @@ namespace storm {
             }
             
             /*------ End of KSH -----*/
-            /*
-            for (uint64_t n = 0; n < allNodes[t].Paths.size(); ++n) {
-                std::cout << "k: " << n << " (" << allNodes[t].Paths[n].Probability << ")" << std::endl;
-                x = t;
-                k = n;
-                ktmp = allNodes[x].Paths[k].Kth;
-                x = allNodes[x].Paths[k].PrevNode;
-                k = ktmp;
-                while (!(k == 0 && x == 0)) {
-                    std::cout << x << " <- ";
-                    ktmp = allNodes[x].Paths[k].Kth;
-                    x = allNodes[x].Paths[k].PrevNode;
-                    k = ktmp;
-                }
-                std::cout << "0" << std::endl;
-            }*/
+
 
             //storm::counterexamples::MyDTMCCounterexample<ValueType>::PrintPotato();
 
@@ -285,13 +269,13 @@ namespace storm {
         void MyDTMCCounterexample<ValueType>::PrintPotato() {
             std::cout << "POTATO" << std::endl;
         }
-
-        //void MyDTMCCounterexample<ValueType>::NextPath(std::vector<storm::counterexamples::MyDTMCCounterexample<ValueType>::Node> &AllNodes) {
-        /*template <class ValueType>
+        /*
+        void MyDTMCCounterexample<ValueType>::NextPath(std::vector<storm::counterexamples::MyDTMCCounterexample<ValueType>::Node> &AllNodes) {
+        template <class ValueType>
         void NextPath(auto &OneNode) {
             std::cout << "xxx" << std::endl;        
-        }*/
-
+        }
+        */
 
         template class MyDTMCCounterexample<double>;
     }
