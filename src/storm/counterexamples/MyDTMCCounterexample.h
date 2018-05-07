@@ -19,7 +19,7 @@ namespace storm {
             struct Path {
                 uint64_t PrevNode;
                 uint64_t Kth;
-                double Probability;
+                double Probability = -1.0;
             };
 
             struct Candidate {
@@ -29,8 +29,8 @@ namespace storm {
             };
 
             struct Node {
-                double Shortest = -1.0; // just for Dijkstra
-                bool Visited = false;
+                //double Shortest = -1.0; // just for Dijkstra
+                //bool Visited = false;
                 std::vector<Path> Paths = std::vector<Path>(1);
                 std::vector<Candidate> Candidates = std::vector<Candidate>(0);
                 std::vector< std::pair<uint64_t, double> > Predecessors = std::vector< std::pair<uint64_t, double> >(0);

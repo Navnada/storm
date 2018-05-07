@@ -81,19 +81,40 @@ namespace storm {
             
             /*------ Dijkstra to all -----*/
             
-            allNodes[0].Shortest = 1.0;
             allNodes[0].Paths[0].Probability = 1.0;
             uint64_t x = 0;
             double prob = -1.0;
+            std::priority_queue< std::pair<double,uint64_t> > Q;
+            Q.push({1.0,0});
+            while(!Q.empty())
+            {
+                uint64_t x = Q.top().second;
+                Q.pop();
+                for (auto const& element : transitionMatrix.getRow(x)) {
+                    if (
+                        allNodes[element.getColumn()].Paths[0].Probability < allNodes[x].Paths[0].Probability * element.getValue()
+                        && rightStates.get(x) != 1 // remove transitions between terminal states
+                        ) {
+                        allNodes[element.getColumn()].Paths[0].Probability = allNodes[x].Paths[0].Probability * element.getValue();
+                        allNodes[element.getColumn()].Paths[0].PrevNode = x;
+                        allNodes[element.getColumn()].Paths[0].Kth = 0;
+                        Q.push({allNodes[element.getColumn()].Paths[0].Probability, element.getColumn()});
+                    }    
+                }
+            }
+/*
             while(true) {
+
                 prob = -1.0;
+                break;
 
                 for (uint64_t n = 0; n < allNodes.size() - 1; ++n) {
                     if(!allNodes[n].Visited && allNodes[n].Shortest > prob) {
                         prob = allNodes[n].Shortest;
                         x = n;
                     }
-                }   
+                }
+                
                 if (prob == -1.0)             
                     break;
                 for (auto const& element : transitionMatrix.getRow(x)) {
@@ -110,10 +131,10 @@ namespace storm {
                 }
                 allNodes[x].Visited = true;
             }
-
+*/
             /*------ End of Dijkstra to all -----*/
             
-            prob = -1.0;
+            //prob = -1.0;
             x = 0;
             for (uint64_t n = 0; n < allNodes.size() - 1; ++n) { 
                 if(rightStates.get(n) == 1) {
@@ -132,7 +153,7 @@ namespace storm {
             std::cout << "probability threshold: " << threshold << std::endl;
             
             double probabilitySum = allNodes[t].Paths[0].Probability;
-            std::cout << "k: " << "0" << " (" << allNodes[t].Paths[k].Probability << ")" << std::endl;
+            std::cout << "k: " << "0" << " (" << allNodes[t].Paths[k].Probability << "; " << probabilitySum << ")" << std::endl;
             x = t;
             while (!(k == 0 && x == 0)) {
                 printStack.push_back(x);
@@ -225,7 +246,7 @@ namespace storm {
                         in = true;
 
                         // print newly found path
-                        std::cout << "k: " << k << " (" << allNodes[t].Paths[k].Probability << ")" << std::endl;
+                        std::cout << "k: " << k << " (" << allNodes[t].Paths[k].Probability << "; " << probabilitySum << ")" << std::endl;
                         x = t;
                         while (!(k == 0 && x == 0)) {
                             printStack.push_back(x);
